@@ -1,4 +1,8 @@
 package ca.cutterslade.util.processpool;
 
-public interface ProcessCallable {
+import java.util.concurrent.Callable;
+
+public interface ProcessCallable<T> extends Callable<T> {
+
+  ProcessConfiguration getProcessConfiguration();
 }

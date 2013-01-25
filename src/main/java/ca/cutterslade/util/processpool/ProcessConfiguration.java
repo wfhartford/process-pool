@@ -1,4 +1,7 @@
 package ca.cutterslade.util.processpool;
 
-public class ProcessConfiguration {
+import javax.annotation.concurrent.Immutable;
+
+@Immutable
+public final class ProcessConfiguration {
 }
