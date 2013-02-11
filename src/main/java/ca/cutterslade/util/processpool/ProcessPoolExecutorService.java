@@ -10,66 +10,99 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
+import ca.cutterslade.util.jvmbuilder.JvmFactory;
+
+import com.google.common.base.Function;
 import com.google.common.collect.Collections2;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 
-public class ProcessPoolExecutorService implements ListeningExecutorService {
+public final class ProcessPoolExecutorService implements ListeningExecutorService {
 
+  @SuppressWarnings("rawtypes")
+  private final Function processWrapperFunction = new Function<Callable<?>, ProcessWrapperCallable<?>>() {
+    @Nullable
+    @Override
+    public ProcessWrapperCallable<?> apply(@Nullable final Callable<?> input) {
+      return new ProcessWrapperCallable<>(pool, defaultJvmFactory, input);
+    }
+  };
   private final ListeningExecutorService executorService;
+  private final ProcessPool pool;
+  private final JvmFactory<?> defaultJvmFactory;
 
-  ProcessPoolExecutorService(final ListeningExecutorService executorService) {
+  ProcessPoolExecutorService(final ListeningExecutorService executorService, final ProcessPool pool,
+      final JvmFactory<?> defaultJvmFactory) {
     this.executorService = executorService;
+    this.pool = pool;
+    this.defaultJvmFactory = defaultJvmFactory;
+  }
+
+  private <T> ProcessWrapperCallable<T> wrapper(final Callable<T> task) {
+    return this.<T>wrapperFunction().apply(task);
+  }
+
+  private <T> Function<Callable<T>, ProcessWrapperCallable<T>> wrapperFunction() {
+    return (Function<Callable<T>, ProcessWrapperCallable<T>>) processWrapperFunction;
   }
 
   @Nonnull
   @Override
-  public <T> ListenableFuture<T> submit(@Nonnull Callable<T> task) {
-    return executorService.submit(new ProcessWrapperCallable<>(task));
+  public <T> ListenableFuture<T> submit(@Nonnull final Callable<T> task) {
+    return executorService.submit(wrapper(task));
   }
 
   @Nonnull
   @Override
-  public <T> ListenableFuture<T> submit(@Nonnull Runnable task, T result) {
-    return submit(Executors.callable(task, result));
+  public <T> ListenableFuture<T> submit(@Nonnull final Runnable task, final T result) {
+    return submit(callable(task, result));
+  }
+
+  private <T, R extends SpecifiesJvmFactory & Runnable> Callable<T> callable(final Runnable task, final T result) {
+    //noinspection CastConflictsWithInstanceof
+    return task instanceof SpecifiesJvmFactory ?
+        new JvmCallable<>((R) task, result) :
+        Executors.callable(task, result);
   }
 
   @Nonnull
   @Override
-  public ListenableFuture<Void> submit(@Nonnull Runnable task) {
+  public ListenableFuture<Void> submit(@Nonnull final Runnable task) {
     return submit(task, null);
   }
 
   @Nonnull
   @Override
-  public <T> List<Future<T>> invokeAll(@Nonnull Collection<? extends Callable<T>> tasks) throws InterruptedException {
-    return executorService.invokeAll(Collections2.transform(tasks, ProcessWrapperCallable.<T>wrapper()));
+  public <T> List<Future<T>> invokeAll(@Nonnull final Collection<? extends Callable<T>> tasks)
+      throws InterruptedException {
+    return executorService.invokeAll(Collections2.transform(tasks, this.<T>wrapperFunction()));
   }
 
   @Nonnull
   @Override
-  public <T> List<Future<T>> invokeAll(@Nonnull Collection<? extends Callable<T>> tasks, long timeout,
-      @Nonnull TimeUnit unit) throws InterruptedException {
-    return executorService.invokeAll(Collections2.transform(tasks, ProcessWrapperCallable.<T>wrapper()), timeout, unit);
+  public <T> List<Future<T>> invokeAll(@Nonnull final Collection<? extends Callable<T>> tasks, final long timeout,
+      @Nonnull final TimeUnit unit) throws InterruptedException {
+    return executorService.invokeAll(Collections2.transform(tasks, this.<T>wrapperFunction()), timeout, unit);
   }
 
   @Nonnull
   @Override
-  public <T> T invokeAny(@Nonnull Collection<? extends Callable<T>> tasks)
+  public <T> T invokeAny(@Nonnull final Collection<? extends Callable<T>> tasks)
       throws InterruptedException, ExecutionException {
-    return executorService.invokeAny(Collections2.transform(tasks, ProcessWrapperCallable.<T>wrapper()));
+    return executorService.invokeAny(Collections2.transform(tasks, this.<T>wrapperFunction()));
   }
 
   @Nonnull
   @Override
-  public <T> T invokeAny(@Nonnull Collection<? extends Callable<T>> tasks, long timeout, @Nonnull TimeUnit unit)
-      throws InterruptedException, ExecutionException, TimeoutException {
-    return executorService.invokeAny(Collections2.transform(tasks, ProcessWrapperCallable.<T>wrapper()), timeout, unit);
+  public <T> T invokeAny(@Nonnull final Collection<? extends Callable<T>> tasks, final long timeout, @Nonnull
+  final TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException {
+    return executorService.invokeAny(Collections2.transform(tasks, this.<T>wrapperFunction()), timeout, unit);
   }
 
   @Override
-  public void execute(@javax.annotation.Nonnull final Runnable command) {
+  public void execute(@Nonnull final Runnable command) {
     submit(command);
   }
 
@@ -95,7 +128,7 @@ public class ProcessPoolExecutorService implements ListeningExecutorService {
   }
 
   @Override
-  public boolean awaitTermination(long timeout, @Nonnull TimeUnit unit) throws InterruptedException {
+  public boolean awaitTermination(final long timeout, @Nonnull final TimeUnit unit) throws InterruptedException {
     return false;  //To change body of implemented methods use File | Settings | File Templates.
   }
 

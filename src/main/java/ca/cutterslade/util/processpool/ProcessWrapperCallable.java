@@ -1,40 +1,62 @@
 package ca.cutterslade.util.processpool;
 
 import java.util.concurrent.Callable;
+import java.util.concurrent.CancellationException;
 
-import javax.annotation.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import com.google.common.base.Function;
+import ca.cutterslade.util.jvmbuilder.JvmFactory;
 
 final class ProcessWrapperCallable<T> implements Callable<T> {
-  private static final Function<Callable<?>, ProcessWrapperCallable<?>> WRAPPER_FUNCTION =
-      new Function<Callable<?>, ProcessWrapperCallable<?>>() {
-        @Nullable
-        @Override
-        public ProcessWrapperCallable<?> apply(@Nullable final Callable<?> callable) {
-          return new ProcessWrapperCallable<>(callable);
-        }
-      };
+  private static final Logger log = LoggerFactory.getLogger(ProcessWrapperCallable.class);
 
-  @SuppressWarnings("unchecked")
-  static <T> Function<Callable<T>, ProcessWrapperCallable<T>> wrapper() {
-    return (Function<Callable<T>, ProcessWrapperCallable<T>>) WRAPPER_FUNCTION;
-  }
+  private final ProcessPool pool;
+  private final Object mutex = new Object();
+  private final JvmFactory jvmFactory;
+  private final Callable<T> callable;
+  private ProcessWrapper wrapper;
+  private boolean cancelled;
 
-  private Callable<T> callable;
-
-  ProcessWrapperCallable(Callable<T> callable) {
+  ProcessWrapperCallable(final ProcessPool pool, final JvmFactory defaultJvmFactory, final Callable<T> callable) {
+    this.pool = pool;
+    this.jvmFactory = pool.getJvmFactory(callable, defaultJvmFactory);
     this.callable = callable;
   }
 
   @Override
   public T call() throws Exception {
-    throw new UnsupportedOperationException("not yet implemented");
+    final T result;
+    synchronized (mutex) {
+      if (cancelled) {
+        throw new CancellationException();
+      }
+      wrapper = pool.getWrapper(jvmFactory);
+    }
+    try {
+      result = wrapper.run(callable);
+    }
+    finally {
+      pool.returnWrapper(jvmFactory, wrapper);
+    }
+    return result;
   }
 
-  boolean abort() {
-  }
-
-  boolean cancelIfNotStarted() {
+  boolean cancel(final boolean mayInterruptIfRunning) {
+    synchronized (mutex) {
+      if (null == wrapper) {
+        cancelled = true;
+      }
+      else if (mayInterruptIfRunning) {
+        try {
+          wrapper.kill();
+        }
+        catch (InterruptedException e) {
+          log.warn("Interrupted killing process", e);
+          Thread.currentThread().interrupt();
+        }
+      }
+      return null == wrapper || mayInterruptIfRunning;
+    }
   }
 }

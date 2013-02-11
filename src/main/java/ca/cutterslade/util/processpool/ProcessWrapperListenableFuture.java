@@ -5,35 +5,28 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
+import javax.annotation.Nonnull;
+
 import com.google.common.util.concurrent.ListenableFuture;
 
 final class ProcessWrapperListenableFuture<T> implements ListenableFuture<T> {
   private final ProcessWrapperCallable<T> callable;
   private final ListenableFuture<T> future;
 
-  ProcessWrapperListenableFuture(final ProcessWrapperCallable<T> callable, final ListenableFuture<T> future) {
+  ProcessWrapperListenableFuture(@Nonnull final ProcessWrapperCallable<T> callable,
+      @Nonnull final ListenableFuture<T> future) {
     this.callable = callable;
     this.future = future;
   }
 
   @Override
-  public void addListener(final Runnable listener, final Executor executor) {
+  public void addListener(@Nonnull final Runnable listener, @Nonnull final Executor executor) {
     future.addListener(listener, executor);
   }
 
   @Override
   public boolean cancel(final boolean mayInterruptIfRunning) {
-    final boolean success;
-    if (future.cancel(false) || callable.cancelIfNotStarted()) {
-      success = true;
-    }
-    else if (mayInterruptIfRunning) {
-      success = callable.abort();
-    }
-    else {
-      success = false;
-    }
-    return success;
+    return future.cancel(false) || callable.cancel(mayInterruptIfRunning);
   }
 
   @Override
@@ -52,8 +45,8 @@ final class ProcessWrapperListenableFuture<T> implements ListenableFuture<T> {
   }
 
   @Override
-  public T get(final long timeout, final TimeUnit unit)
+  public T get(final long timeout, @Nonnull final TimeUnit unit)
       throws InterruptedException, ExecutionException, TimeoutException {
-    return future.get();
+    return future.get(timeout, unit);
   }
 }
