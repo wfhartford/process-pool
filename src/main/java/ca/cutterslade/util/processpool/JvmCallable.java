@@ -20,7 +20,7 @@ class JvmCallable<T, R extends Runnable & SpecifiesJvmFactory> implements Callab
   }
 
   @Override
-  public JvmFactory getJvmFactory() {
+  public JvmFactory<?> getJvmFactory() {
     return runnable.getJvmFactory();
   }
 }
