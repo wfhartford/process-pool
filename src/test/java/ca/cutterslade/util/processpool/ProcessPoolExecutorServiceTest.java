@@ -1,5 +1,6 @@
 package ca.cutterslade.util.processpool;
 
+import java.io.Serializable;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
@@ -18,6 +19,16 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 
 public class ProcessPoolExecutorServiceTest {
+  private enum TrueCallable implements Callable<Boolean>, Serializable {
+    INSTANCE;
+    private static final long serialVersionUID = 1L;
+
+    @Override
+    public Boolean call() throws Exception {
+      return Boolean.TRUE;
+    }
+  }
+
   private ProcessPoolExecutorService service;
 
   @Before
@@ -35,12 +46,7 @@ public class ProcessPoolExecutorServiceTest {
 
   @Test
   public void testSimpleCallable() throws InterruptedException, ExecutionException, TimeoutException {
-    final ListenableFuture<Boolean> submit = service.submit(new Callable<Boolean>() {
-      @Override
-      public Boolean call() throws Exception {
-        return Boolean.TRUE;
-      }
-    });
+    final ListenableFuture<Boolean> submit = service.submit(TrueCallable.INSTANCE);
     Assert.assertTrue(submit.get(10000, TimeUnit.MILLISECONDS));
   }
 }

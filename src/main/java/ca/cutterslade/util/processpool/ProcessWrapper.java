@@ -2,10 +2,8 @@ package ca.cutterslade.util.processpool;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.io.ObjectInput;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutput;
-import java.io.ObjectOutputStream;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.io.Serializable;
 import java.net.Socket;
 import java.util.concurrent.Callable;
@@ -57,6 +55,16 @@ final class ProcessWrapper implements Closeable {
     }
   }
 
+  private enum PingCallable implements Callable<String>, Serializable {
+    INSTANCE;
+    private static final long serialVersionUID = 1L;
+
+    @Override
+    public String call() throws Exception {
+      return PING_RESPONSE;
+    }
+  }
+
   private static final String PING_RESPONSE = "pong";
   private static final ProcessCommand KILL_COMMAND = new ProcessCommand() {
     private static final long serialVersionUID = 1L;
@@ -66,24 +74,18 @@ final class ProcessWrapper implements Closeable {
       context.killProcess();
     }
   };
-  private static final Callable<String> PING_CALLABLE = new Callable<String>() {
-    @Override
-    public String call() throws Exception {
-      return PING_RESPONSE;
-    }
-  };
   private final Process process;
   private final Socket socket;
-  private final ObjectInput input;
-  private final ObjectOutput output;
+  private final InputStream input;
+  private final OutputStream output;
   private final AtomicBoolean running = new AtomicBoolean();
 
   ProcessWrapper(final Process process, final Socket socket) throws IOException {
     this.process = process;
     this.socket = socket;
     try {
-      this.input = new ObjectInputStream(socket.getInputStream());
-      this.output = new ObjectOutputStream(socket.getOutputStream());
+      this.input = socket.getInputStream();
+      this.output = socket.getOutputStream();
     }
     catch (Throwable t) {
       socket.close();
@@ -97,7 +99,7 @@ final class ProcessWrapper implements Closeable {
     }
     else {
       try {
-        writeCommand(KILL_COMMAND);
+        StreamUtils.writeObject(output, KILL_COMMAND);
       }
       catch (IOException e) {
         log.warn("Exception writing kill command, destroying process", e);
@@ -110,8 +112,8 @@ final class ProcessWrapper implements Closeable {
   <T> T run(final Callable<T> callable) throws ExecutionException {
     running.set(true);
     try {
-      writeCommand(new ExecuteCommand(callable));
-      final Object result = readResult();
+      StreamUtils.writeObject(output, new ExecuteCommand(callable));
+      final Object result = StreamUtils.readObject(input);
       if (result instanceof ThrowableResult) {
         throw new ExecutionException(((ThrowableResult) result).getThrowable());
       }
@@ -125,16 +127,8 @@ final class ProcessWrapper implements Closeable {
     }
   }
 
-  private void writeCommand(final ProcessCommand processCommand) throws IOException {
-    output.writeObject(processCommand);
-  }
-
-  private Object readResult() throws IOException, ClassNotFoundException {
-    return input.readObject();
-  }
-
   void ping() throws Exception {
-    final String response = run(PING_CALLABLE);
+    final String response = run(PingCallable.INSTANCE);
     if (!PING_RESPONSE.equals(response)) {
       throw new IllegalStateException("Expected ping response of " + PING_RESPONSE + "; recieved " + response);
     }
