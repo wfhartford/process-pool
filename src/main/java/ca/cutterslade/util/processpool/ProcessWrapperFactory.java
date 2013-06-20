@@ -10,7 +10,7 @@ import org.slf4j.LoggerFactory;
 
 import ca.cutterslade.util.jvmbuilder.JvmFactory;
 
-class ProcessWrapperFactory implements KeyedPoolableObjectFactory<JvmFactory<?>, ProcessWrapper> {
+final class ProcessWrapperFactory implements KeyedPoolableObjectFactory<JvmFactory<?>, ProcessWrapper> {
   private static final Logger log = LoggerFactory.getLogger(ProcessWrapperFactory.class);
 
   private final int acceptTimeout;

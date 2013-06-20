@@ -8,7 +8,7 @@ import org.apache.commons.pool.impl.GenericKeyedObjectPool;
 
 import ca.cutterslade.util.jvmbuilder.JvmFactory;
 
-class KeyedObjectPoolProvider implements Provider<KeyedObjectPool<JvmFactory<?>, ProcessWrapper>> {
+final class KeyedObjectPoolProvider implements Provider<KeyedObjectPool<JvmFactory<?>, ProcessWrapper>> {
   private final KeyedPoolableObjectFactory<JvmFactory<?>, ProcessWrapper> factory;
   private final int maxActive;
   private final byte whenExhaustedAction;
@@ -24,7 +24,12 @@ class KeyedObjectPoolProvider implements Provider<KeyedObjectPool<JvmFactory<?>,
   private final boolean testWhileIdle;
   private final boolean lifo;
 
-  public KeyedObjectPoolProvider(final KeyedPoolableObjectFactory<JvmFactory<?>, ProcessWrapper> factory,
+  KeyedObjectPoolProvider() {
+    this(new ProcessWrapperFactory(5000, 5000), 10, GenericKeyedObjectPool.WHEN_EXHAUSTED_FAIL, 5000, 10, 10, 0, true,
+        true, 10000, 10, 5000, false, true);
+  }
+
+  KeyedObjectPoolProvider(final KeyedPoolableObjectFactory<JvmFactory<?>, ProcessWrapper> factory,
       final int maxActive, final byte whenExhaustedAction, final long maxWait, final int maxIdle, final int maxTotal,
       final int minIdle, final boolean testOnBorrow, final boolean testOnReturn,
       final long timeBetweenEvictionRunsMillis, final int numTestsPerEvictionRun, final long minEvictableIdleTimeMillis,
@@ -48,7 +53,7 @@ class KeyedObjectPoolProvider implements Provider<KeyedObjectPool<JvmFactory<?>,
   @Override
   public KeyedObjectPool<JvmFactory<?>, ProcessWrapper> get() {
     return new GenericKeyedObjectPool<>(factory, maxActive, whenExhaustedAction, maxWait, maxIdle, maxTotal, minIdle,
-        testOnBorrow, testOnReturn, timeBetweenEvictionRunsMillis, numTestsPerEvictionRun, minEvictableIdleTimeMillis,
-        testWhileIdle, lifo);
+        testOnBorrow, testOnReturn, timeBetweenEvictionRunsMillis, numTestsPerEvictionRun,
+        minEvictableIdleTimeMillis, testWhileIdle, lifo);
   }
 }

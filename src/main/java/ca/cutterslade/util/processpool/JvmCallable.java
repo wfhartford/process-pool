@@ -4,7 +4,7 @@ import java.util.concurrent.Callable;
 
 import ca.cutterslade.util.jvmbuilder.JvmFactory;
 
-class JvmCallable<T, R extends Runnable & SpecifiesJvmFactory> implements Callable<T>, SpecifiesJvmFactory {
+final class JvmCallable<T, R extends Runnable & SpecifiesJvmFactory> implements Callable<T>, SpecifiesJvmFactory {
   private final R runnable;
   private final T result;
 

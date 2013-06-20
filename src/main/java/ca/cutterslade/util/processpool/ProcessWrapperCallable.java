@@ -13,12 +13,12 @@ final class ProcessWrapperCallable<T> implements Callable<T> {
 
   private final ProcessPool pool;
   private final Object mutex = new Object();
-  private final JvmFactory jvmFactory;
+  private final JvmFactory<?> jvmFactory;
   private final Callable<T> callable;
   private ProcessWrapper wrapper;
   private boolean cancelled;
 
-  ProcessWrapperCallable(final ProcessPool pool, final JvmFactory defaultJvmFactory, final Callable<T> callable) {
+  ProcessWrapperCallable(final ProcessPool pool, final JvmFactory<?> defaultJvmFactory, final Callable<T> callable) {
     this.pool = pool;
     this.jvmFactory = pool.getJvmFactory(callable, defaultJvmFactory);
     this.callable = callable;

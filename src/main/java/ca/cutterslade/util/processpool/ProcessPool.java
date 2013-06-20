@@ -3,20 +3,21 @@ package ca.cutterslade.util.processpool;
 import java.util.concurrent.Callable;
 
 import org.apache.commons.pool.KeyedObjectPool;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import ca.cutterslade.util.jvmbuilder.JvmFactory;
 
-class ProcessPool implements AutoCloseable {
-
+final class ProcessPool implements AutoCloseable {
+  private static final Logger log = LoggerFactory.getLogger(ProcessPool.class);
   private final KeyedObjectPool<JvmFactory<?>, ProcessWrapper> pool;
-  private final int port;
 
-  ProcessPool(final KeyedObjectPool<JvmFactory<?>, ProcessWrapper> pool, final int port) {
+  ProcessPool(final KeyedObjectPool<JvmFactory<?>, ProcessWrapper> pool) {
     this.pool = pool;
-    this.port = port;
   }
 
   public ProcessWrapper getWrapper(final JvmFactory<?> jvmFactory) {
+    log.debug("Getting wrapper for {}", jvmFactory);
     try {
       return pool.borrowObject(jvmFactory);
     }
@@ -26,6 +27,7 @@ class ProcessPool implements AutoCloseable {
   }
 
   public void returnWrapper(final JvmFactory<?> jvmFactory, final ProcessWrapper wrapper) {
+    log.debug("Returning wrapper {} for {}", wrapper, jvmFactory);
     try {
       pool.returnObject(jvmFactory, wrapper);
     }
@@ -36,6 +38,7 @@ class ProcessPool implements AutoCloseable {
 
   @Override
   public void close() {
+    log.debug("Closing");
     try {
       pool.close();
     }
@@ -45,8 +48,9 @@ class ProcessPool implements AutoCloseable {
   }
 
   public JvmFactory<?> getJvmFactory(final Callable<?> callable, final JvmFactory<?> defaultJvmFactory) {
-    final JvmFactory<?> base =
-        callable instanceof SpecifiesJvmFactory ? ((SpecifiesJvmFactory) callable).getJvmFactory() : defaultJvmFactory;
+    final JvmFactory<?> base = callable instanceof SpecifiesJvmFactory ?
+        ((SpecifiesJvmFactory) callable).getJvmFactory() : defaultJvmFactory;
+    log.debug("Getting JVM Factory for {} based on {}", callable, base);
     return base.clearProgram()
         .setMainClass(ProcessTask.class)
         .build();

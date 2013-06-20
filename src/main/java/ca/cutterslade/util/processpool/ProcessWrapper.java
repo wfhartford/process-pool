@@ -15,7 +15,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-class ProcessWrapper implements Closeable {
+final class ProcessWrapper implements Closeable {
   private static final Logger log = LoggerFactory.getLogger(ProcessWrapper.class);
 
   private static final class ThrowableResult implements Serializable {
@@ -81,8 +81,14 @@ class ProcessWrapper implements Closeable {
   ProcessWrapper(final Process process, final Socket socket) throws IOException {
     this.process = process;
     this.socket = socket;
-    this.input = new ObjectInputStream(socket.getInputStream());
-    this.output = new ObjectOutputStream(socket.getOutputStream());
+    try {
+      this.input = new ObjectInputStream(socket.getInputStream());
+      this.output = new ObjectOutputStream(socket.getOutputStream());
+    }
+    catch (Throwable t) {
+      socket.close();
+      throw t;
+    }
   }
 
   void kill() throws InterruptedException {
